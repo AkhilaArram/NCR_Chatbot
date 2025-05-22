@@ -3,3 +3,7 @@ google-generativeai
 python-dotenv
 pillow 
 requests
+streamlit
+PyPDF2
+faiss-cpu
+numpy
