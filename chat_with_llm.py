@@ -10,8 +10,16 @@ def login():
     st.title("Login")
     username = st.text_input("Username")
     password = st.text_input("Password", type="password")
+
+    # Dictionary of allowed users and their passwords
+    allowed_users = {
+        "Akhila": "1234",
+        "Raayan": "5678",
+        "Olivia": "9876"
+    }
+
     if st.button("Login"):
-        if username == "Akhila" and password == "1234":  # Change for your use
+        if username in allowed_users and password == allowed_users[username]:
             st.session_state["logged_in"] = True
             st.session_state["username"] = username
             st.success("Login successful!")
