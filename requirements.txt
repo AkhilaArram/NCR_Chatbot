@@ -7,3 +7,6 @@ streamlit
 PyPDF2
 faiss-cpu
 numpy
+langchain
+openai
+pypdf
