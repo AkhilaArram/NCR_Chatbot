@@ -5,11 +5,18 @@ import numpy as np
 import faiss
 import os
 
+
+from dotenv import load_dotenv
+
+load_dotenv(override=True)
+
+
 # --- Simple login page (for demo only, not secure for production) ---
 def login():
     st.title("Login")
     username = st.text_input("Username")
     password = st.text_input("Password", type="password")
+
 
     # Dictionary of allowed users and their passwords
     allowed_users = {
@@ -41,10 +48,47 @@ def chunk_text(text, chunk_size=1500, overlap=300):
     chunks = []
     start = 0
     while start < len(text):
-        end = start + chunk_sizes
+        end = start + chunk_size
         chunks.append(text[start:end])
         start += chunk_size - overlap
     return chunks
+
+
+    # Dictionary of allowed users and their passwords
+    allowed_users = {
+        "Akhila": "1234",
+        "Raayan": "5678",
+        "Olivia": "9876"
+    }
+
+    if st.button("Login"):
+        if username in allowed_users and password == allowed_users[username]:
+            st.session_state["logged_in"] = True
+            st.session_state["username"] = username
+            st.success("Login successful!")
+        else:
+            st.error("Invalid credentials")
+
+if "logged_in" not in st.session_state:
+    st.session_state["logged_in"] = False
+
+if not st.session_state["logged_in"]:
+    login()
+    st.stop()
+
+# --- Main Chatbot App ---
+genai.configure(api_key=os.environ["GOOGLE_API_KEY"])
+st.title("Gemini PDF Chatbot Interface")
+
+def chunk_text(text, chunk_size=1500, overlap=300):
+    chunks = []
+    start = 0
+    while start < len(text):
+        end = start + chunk_size
+        chunks.append(text[start:end])
+        start += chunk_size - overlap
+    return chunks
+
 
 # --- FAISS index directory logic ---
 INDEX_DIR = "faiss_indexes"
