@@ -53,7 +53,7 @@ if "messages" not in st.session_state:
 for message in st.session_state.messages:
     with st.chat_message(message.type):
         st.markdown(message.content)
-
+        
 # Handle user input
 if user_input := st.chat_input("Ask a question:"):
     # Add user message to session state and display it
@@ -71,13 +71,14 @@ if user_input := st.chat_input("Ask a question:"):
     with st.chat_message(bot_reply_message.type):
         st.markdown(bot_reply_message.content)
 
-    # Thumbs Feedback
+# Display feedback options for the last bot message
+if st.session_state.messages and st.session_state.messages[-1].type != "human":
     st.write("Was this response helpful?")
-    col1, col2 = st.columns(2)
+    # Use columns to place buttons side-by-side, with a unique key for the last message
+    col1, col2, _ = st.columns([1, 1, 10])
+    feedback_key = f"feedback_{len(st.session_state.messages)}"
 
-    # Use a unique key for buttons to avoid state issues in Streamlit loops
-    if col1.button("👍 Yes", key=f"yes_{len(st.session_state.messages)}"):
+    if col1.button("👍 Yes", key=f"yes_{feedback_key}"):
         st.success("Thank you for the positive feedback!")
-
-    if col2.button("👎 No", key=f"no_{len(st.session_state.messages)}"):
+    if col2.button("👎 No", key=f"no_{feedback_key}"):
         st.warning("Thank you for your feedback! We'll try to improve.")
