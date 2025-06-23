@@ -22,7 +22,7 @@ GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 
 if not GOOGLE_API_KEY:
     print("Warning: GOOGLE_API_KEY not found. Q&A functionality will require it.")
-
+    
 # ======= PDF PATH =========
 pdf_path = r"C:\Users\AKHILA\OneDrive\Desktop\Hyderabad.pdf" 
 

@@ -8,7 +8,6 @@ import os
 from dotenv import load_dotenv
 
 load_dotenv(override=True)
-
 # --- Simple login page ---
 def login():
     st.title("Login")

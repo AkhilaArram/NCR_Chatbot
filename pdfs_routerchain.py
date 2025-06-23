@@ -44,7 +44,7 @@ try:
 except Exception as e:
     st.error(f"Failed to initialize Google Generative AI: {e}")
     st.stop()
-
+    
 # Create PDFs if not exists
 topics = ["forest", "beach", "sea", "trees", "flowers", "mountains", "desert", "river", "lake", "rainforest",
           "savanna", "tundra", "volcano", "island", "canyon", "waterfall", "meadow", "valley", "swamp", "reef",

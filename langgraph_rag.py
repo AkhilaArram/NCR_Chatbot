@@ -187,7 +187,6 @@ graph.add_edge("retriever_agent", "llm")
 graph.set_entry_point("llm")
 
 rag_agent = graph.compile()
-
 # Visualization of Graph
 # rag_agent.get_graph().draw_mermaid_png(output_file_path="rag_visualization.png")
 # print("Graph visualization saved to rag_visualization.png")
