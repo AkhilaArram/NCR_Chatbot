@@ -9,4 +9,12 @@ faiss-cpu
 numpy 
 langchain
 pypdf
+pydantic<2.0.0
+langchain==0.3.25
+langchain-core==0.3.61
+langchain-community
+langchain-google-genai
+fpdf
+
+
 

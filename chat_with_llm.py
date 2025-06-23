@@ -4,6 +4,9 @@ import PyPDF2
 import numpy as np
 import faiss
 import os
+from dotenv import load_dotenv
+
+load_dotenv(override=True)
 
 # --- Simple login page (for demo only, not secure for production) ---
 def login():
@@ -34,14 +37,14 @@ if not st.session_state["logged_in"]:
     st.stop()
 
 # --- Main Chatbot App ---
-genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
+genai.configure(api_key=os.environ["GOOGLE_API_KEY"])
 st.title("Gemini PDF Chatbot Interface")
 
 def chunk_text(text, chunk_size=1500, overlap=300):
     chunks = []
     start = 0
     while start < len(text):
-        end = start + chunk_sizes
+        end = start + chunk_size
         chunks.append(text[start:end])
         start += chunk_size - overlap
     return chunks
