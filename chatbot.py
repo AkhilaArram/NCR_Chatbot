@@ -42,7 +42,6 @@ graph_builder.add_edge("chat", END)
 graph = graph_builder.compile()
 
 # --- Streamlit UI ---
-
 st.title("Chatbot")
 
 # Initialize chat history in session state
@@ -74,7 +73,7 @@ if user_input := st.chat_input("Ask a question:"):
 # Display feedback options for the last bot message
 if st.session_state.messages and st.session_state.messages[-1].type != "human":
     st.write("Was this response helpful?")
-    # Use columns to place buttons side-by-side, with a unique key for the last message
+    
     col1, col2, _ = st.columns([1, 1, 10])
     feedback_key = f"feedback_{len(st.session_state.messages)}"
 
