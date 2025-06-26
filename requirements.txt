@@ -6,12 +6,9 @@ requests
 streamlit
 PyPDF2
 faiss-cpu
-numpy
-langchain
 openai
 pypdf
 numpy 
-langchain
 pypdf
 pydantic<2.0.0
 langchain==0.3.25
@@ -19,8 +16,7 @@ langchain-core==0.3.61
 langchain-community
 langchain-google-genai
 fpdf
-
-
+langgraph
 
 
 

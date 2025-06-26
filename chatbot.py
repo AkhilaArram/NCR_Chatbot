@@ -9,9 +9,11 @@ from langgraph.graph.message import add_messages
 
 # Load environment variables
 load_dotenv()
-GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY") or st.secrets.get("GOOGLE_API_KEY")
+
 if not GOOGLE_API_KEY:
-    st.error("GOOGLE_API_KEY environment variable not set. Please set it in your .env file.")
+    st.error("GOOGLE_API_KEY not found. Please set it in your .env file for local use, or in Streamlit secrets for deployment.")
     st.stop()
 
 # --- State and Graph Definition ---
