@@ -1,102 +1,149 @@
+import os
 import streamlit as st
+from dotenv import load_dotenv
 from langchain_community.document_loaders import PyPDFLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain_community.vectorstores import FAISS
+from langchain_community.vectorstores import Neo4jVector
 from langchain_google_genai import GoogleGenerativeAIEmbeddings, ChatGoogleGenerativeAI
 from langchain.chains import RetrievalQA
-import os
-from dotenv import load_dotenv
 
+# --- Load environment variables ---
 load_dotenv(override=True)
 
-# --- Simple login page ---
-def login():
-    st.title("Login")
-    username = st.text_input("Username")
-    password = st.text_input("Password", type="password")
-    allowed_users = {
-        "Akhila": "1234",
-        "Raayan": "5678",
-        "Olivia": "9876"
-    }
-    if st.button("Login"):
-        if username in allowed_users and password == allowed_users[username]:
-            st.session_state["logged_in"] = True
-            st.session_state["username"] = username
-            st.success("Login successful!")
-        else:
-            st.error("Invalid credentials")
-
-if "logged_in" not in st.session_state:
-    st.session_state["logged_in"] = False
+# --- App Title ---
+st.title("📄 Multi-User PDF Chatbot (Gemini + Neo4j)")
 
 
-if not st.session_state["logged_in"]:
-    login()
-    st.stop()
+# --- Simulated login (can be replaced with real auth) ---
+if "username" not in st.session_state:
+    st.session_state.username = "default_user"
 
-# --- Main Chatbot App ---
-st.title("LangChain PDF Chatbot (Gemini)")
+st.sidebar.info(f"Logged in as: **{st.session_state.username}**")
 
-# --- PDF upload ---
-uploaded_file = st.file_uploader("Upload a PDF", type="pdf")
-if uploaded_file is not None:
-    # Save uploaded file to disk for PyPDFLoader
-    with open("temp.pdf", "wb") as f:
-        f.write(uploaded_file.read())
+# --- Initialize Chat State ---
+if "messages" not in st.session_state:
+    st.session_state.messages = []
 
-    # Load and split PDF
-    loader = PyPDFLoader("temp.pdf")
-    docs = loader.load()
-    text_splitter = RecursiveCharacterTextSplitter(chunk_size=1500, chunk_overlap=300)
-    splits = text_splitter.split_documents(docs)
+# --- Cached Neo4j connection ---
+@st.cache_resource(show_spinner="🔗 Connecting to Neo4j...")
+def get_neo4j_connection():
+    GOOGLE_API_KEY = st.secrets.get("GOOGLE_API_KEY") or os.getenv("GOOGLE_API_KEY")
+    NEO4J_URI = st.secrets.get("NEO4J_URI") or os.getenv("NEO4J_URI")
+    NEO4J_USERNAME = st.secrets.get("NEO4J_USERNAME") or os.getenv("NEO4J_USERNAME")
+    NEO4J_PASSWORD = st.secrets.get("NEO4J_PASSWORD") or os.getenv("NEO4J_PASSWORD")
 
-    # --- Use Gemini for embeddings and LLM ---
-    GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+    if not all([GOOGLE_API_KEY, NEO4J_URI, NEO4J_USERNAME, NEO4J_PASSWORD]):
+        st.error("Missing Neo4j or Gemini credentials.")
+        st.stop()
 
     embeddings = GoogleGenerativeAIEmbeddings(
         model="models/embedding-001",
         google_api_key=GOOGLE_API_KEY
     )
-    vectordb = FAISS.from_documents(splits, embeddings)
 
-    llm = ChatGoogleGenerativeAI(
-        google_api_key=GOOGLE_API_KEY,
-        model="models/gemini-1.5-flash"
+    db = Neo4jVector.from_documents(
+        documents=[],  # Pass an empty list to initialize
+        embedding=embeddings,
+        url=NEO4J_URI,
+        username=NEO4J_USERNAME,
+        password=NEO4J_PASSWORD,
+       index_name=f"pdf_chunks_{st.session_state.username}", 
+        node_label="PdfChunk",
+        text_node_property="text",
+        embedding_node_property="embedding",
     )
-    qa = RetrievalQA.from_chain_type(llm=llm, chain_type="stuff", retriever=vectordb.as_retriever())
+    return db, embeddings
 
-    # --- Chat history ---
-    if "messages" not in st.session_state:
-        st.session_state.messages = []
+neo4j_db, embeddings = get_neo4j_connection()
 
-    # --- Chat form ---
-    with st.form(key="chat_form", clear_on_submit=True):
-        user_input = st.text_input("Enter your question...", key="user_input")
-        process = st.form_submit_button("Ask")
-        if process and user_input:
-            with st.spinner("Thinking..."):
-                answer = qa.run(user_input)
+# --- PDF Upload ---
+uploaded_file = st.file_uploader("Upload a PDF", type="pdf")
+if uploaded_file:
+    pdf_name = uploaded_file.name
+    user_id = st.session_state.username
+
+    # Check if chunks already exist for this user and PDF
+    st.spinner("Checking database for existing data...")
+    result = neo4j_db.query(
+        """
+        MATCH (n:PdfChunk {pdf_name: $pdf_name, user_id: $user_id})
+        RETURN count(n) > 0 AS exists
+        """,
+        params={"pdf_name": pdf_name, "user_id": user_id}
+    )
+
+    if not result[0]["exists"]:
+        st.info(f"Indexing new PDF: {pdf_name} for user '{user_id}'...")
+
+        with st.spinner("⏳ Processing PDF..."):
+            temp_path = f"temp_{pdf_name}"
+            with open(temp_path, "wb") as f:
+                f.write(uploaded_file.read())
+
+            loader = PyPDFLoader(temp_path)
+            docs = loader.load()
+
+            splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
+            chunks = splitter.split_documents(docs)
+
+            for chunk in chunks:
+                chunk.metadata["pdf_name"] = pdf_name
+                chunk.metadata["user_id"] = user_id
+
+            neo4j_db.add_documents(chunks)
+
+            # Link chunks to a PDF node
+            neo4j_db.query(
+                """
+                MERGE (pdf:PDF {name: $pdf_name, user_id: $user_id})
+                WITH pdf
+                MATCH (chunk:PdfChunk {pdf_name: $pdf_name, user_id: $user_id})
+                MERGE (pdf)-[:HAS_CHUNK]->(chunk)
+                """,
+                params={"pdf_name": pdf_name, "user_id": user_id}
+            )
+
+            st.success(f"✅ Indexed and linked chunks for '{pdf_name}'")
+            os.remove(temp_path)
+    else:
+        st.success(f"✅ Ready to chat with: {pdf_name}")
+
+    # --- LLM Setup ---
+    llm = ChatGoogleGenerativeAI(
+        model="models/gemini-1.5-flash",
+        google_api_key=st.secrets.get("GOOGLE_API_KEY") or os.getenv("GOOGLE_API_KEY")
+    )
+
+    # --- Filtered retriever ---
+    retriever = neo4j_db.as_retriever(
+        search_kwargs={"filter": {"pdf_name": pdf_name, "user_id": user_id}, "k": 5}
+    )
+
+    qa = RetrievalQA.from_chain_type(llm=llm, chain_type="stuff", retriever=retriever)
+
+    # --- Chat Form ---
+    with st.form("chat_form", clear_on_submit=True):
+        user_input = st.text_input("Ask a question...")
+        send = st.form_submit_button("Ask")
+        if send and user_input:
+            with st.spinner("🤖 Thinking..."):
+                # Use invoke for better compatibility with LCEL and future versions
+                result = qa.invoke({"query": user_input})
+                answer = result.get("result", "I could not find an answer in the document.")
             st.session_state.messages.append(("You", user_input))
             st.session_state.messages.append(("Bot", answer))
 
-    # --- Chat window ---
-    st.markdown("<h5>Chat History</h5>", unsafe_allow_html=True)
-    for sender, message in st.session_state.messages:
+    # --- Display Chat ---
+    st.markdown("💬 Chat History")
+    for i, (sender, msg) in enumerate(st.session_state.messages):
         if sender == "You":
-            st.markdown(f"<div style='text-align:right;background:#DCF8C6;padding:8px;border-radius:8px;margin:4px 0'><b>You:</b> {message}</div>", unsafe_allow_html=True)
+            st.markdown(f"<div style='text-align:right; background:#DCF8C6; padding:8px; border-radius:8px; margin:5px'><b>You:</b> {msg}</div>", unsafe_allow_html=True)
         else:
-            st.markdown(f"<div style='text-align:left;background:#F1F0F0;padding:8px;border-radius:8px;margin:4px 0'><b>Bot:</b> {message}</div>", unsafe_allow_html=True)
+            st.markdown(f"<div style='text-align:left; background:#F1F0F0; padding:8px; border-radius:8px; margin:5px'><b>Bot:</b> {msg}</div>", unsafe_allow_html=True)
 
-    # --- Clear chat ---
-    if st.button("Clear Chat"):
+    # --- Clear Chat Button ---
+    if st.button("🧹 Clear Chat"):
         st.session_state.messages = []
 
-    # --- Logout ---
-    if st.button("Logout"):
-        st.session_state.clear()
-
-    # Clean up temp file
-    os.remove("temp.pdf")
 else:
-    st.info("Please upload a PDF to start chatting.")
+    st.info("📤 Please upload a PDF to begin.")

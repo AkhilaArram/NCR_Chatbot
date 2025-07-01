@@ -1,5 +1,10 @@
 python-dotenv
 streamlit
+langchain
 langchain-core==0.3.61
 langchain-google-genai
 langgraph
+langchain-community
+PyPDF2
+faiss-cpu
+langchain-neo4j
