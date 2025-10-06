@@ -1,3 +1,4 @@
+# using langgraph
 import streamlit as st
 from dotenv import load_dotenv
 import os
@@ -23,9 +24,11 @@ class GraphState(TypedDict):
 
 # Gemini LLM
 llm = ChatGoogleGenerativeAI(
-    model="gemini-1.5-flash",
+    model="gemini-2.5-flash",
     temperature=0,
-    google_api_key=GOOGLE_API_KEY
+    google_api_key=GOOGLE_API_KEY,
+    
+    
 )
 
 # LangGraph Chat Node
